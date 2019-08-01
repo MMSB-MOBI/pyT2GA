@@ -1,0 +1,334 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# # T^2 Genome Analysis
+
+
+import pandas as pd
+import numpy as np
+import json
+
+
+# __Load data__
+
+# __Utility functions__
+
+
+from numpy import linalg as la
+
+def nearestPD(A):
+    """Find the positive-definite matrix nearest to input.
+    
+    Written by Ahmed Fasih: https://stackoverflow.com/users/500207/ahmed-fasih.
+
+    A Python/Numpy port of John D'Errico's `nearestSPD` MATLAB code [1], which
+    credits [2].
+
+    [1] https://www.mathworks.com/matlabcentral/fileexchange/42885-nearestspd.
+
+    [2] N.J. Higham, "Computing a nearest symmetric positive semidefinite
+    matrix" (1988): https://doi.org/10.1016/0024-3795(88)90223-6.
+    """
+
+    B = (A + A.T) / 2
+    _, s, V = la.svd(B)
+
+    H = np.dot(V.T, np.dot(np.diag(s), V))
+
+    A2 = (B + H) / 2
+
+    A3 = (A2 + A2.T) / 2
+
+    if isPD(A3):
+        return A3
+
+    spacing = np.spacing(la.norm(A))
+    # The above is different from [1]. It appears that MATLAB's `chol` Cholesky
+    # decomposition will accept matrixes with exactly 0-eigenvalue, whereas
+    # Numpy's will not. So where [1] uses `eps(mineig)` (where `eps` is Matlab
+    # for `np.spacing`), we use the above definition. CAVEAT: our `spacing`
+    # will be much larger than [1]'s `eps(mineig)`, since `mineig` is usually on
+    # the order of 1e-16, and `eps(1e-16)` is on the order of 1e-34, whereas
+    # `spacing` will, for Gaussian random matrixes of small dimension, be on
+    # the order of 1e-16. In practice, both ways converge, as the unit test
+    # below suggests.
+    I = np.eye(A.shape[0])
+    k = 1
+    while not isPD(A3):
+        mineig = np.min(np.real(la.eigvals(A3)))
+        A3 += I * (-mineig * k**2 + spacing)
+        k += 1
+
+    return A3
+
+def isPD(B):
+    """Returns True when input is positive-definite, via Cholesky"""
+    try:
+        _ = la.cholesky(B)
+        return True
+    except la.LinAlgError:
+        return False
+
+if __name__ == '__main__':
+    for i in range(10):
+        for j in range(2, 100):
+            A = np.random.randn(j, j)
+            B = nearestPD(A)
+            assert(isPD(B))
+    print('unit test passed!')
+
+
+from scipy.stats import chi2
+
+def TV(z, S):
+    """
+        This function calculates the T^2 value of the given pathway
+        and the corresponding interaction matrix.
+    """
+    kik = np.where(z!=0)[0]
+    if len(kik)==0:
+        return 0
+    else:
+        return np.dot(np.dot(np.transpose(z[kik]), np.linalg.pinv(np.diag(S[kik,kik]))), z[kik])
+    
+def TS(pathway, ppi, stu, purb, dgv=0.4):
+    """ T-square.
+        For the given pathway, this function creates the corresponding
+        interaction matrix.
+        Returns the associated T^2, p-value, and other information.
+    """
+    pathway = pathway.sort_values(by='prot_id').reset_index(drop = True)
+    z = np.vectorize(float)(pathway['exp'])
+    m = np.where(np.isin(stu, pathway))[0]
+    S = dgv * np.identity(len(z))
+    nrow, ncol = S.shape
+    if nrow != 1:
+        for i in range(1, nrow):
+            for j in range(i):
+                x1 = pathway.iat[i, 1]
+                x2 = pathway.iat[j, 1]
+                s1 = stu.iloc[m]['String_id'].to_numpy()                    [np.where(np.isin(stu.iloc[m]['Uniprot_id'], x1))[0]]
+                s2 = stu.iloc[m]['String_id'].to_numpy()                    [np.where(np.isin(stu.iloc[m]['Uniprot_id'], x2))[0]]   
+                if len(s1)*len(s2) !=0:
+                    p = ppi.iloc[np.where(np.isin(ppi['protein1'],s1))[0]]
+                    p = p.iloc[np.where(np.isin(p['protein2'], s2))]['experimental']
+                    if len(p)>0:      
+                        if z[pathway['prot_id']==x1]*z[pathway['prot_id']==x2] <0:
+                            S[i,j] = -np.mean(p)
+                            S[j,i] = -np.mean(p)
+                        else:
+                            S[i,j] = np.mean(p)
+                            S[j,i] = np.mean(p)
+    S = nearestPD(S)
+    r = np.linalg.matrix_rank(S, tol=1e-10)
+    T2 = TV(z, S)
+    I = dgv * np.identity(len(z))
+    T2I = TV(z, I)
+    return np.array([pathway.iat[0,0],
+                    ','.join(pathway['prot_id']),
+                    len(pathway),
+                    r,
+                    T2,
+                    chi2.sf(T2, r),
+                    T2I,
+                    chi2.sf(T2I, r)],
+                    dtype=object)
+
+
+
+def PS(pi, cov=0):
+    """
+        This function returns a list of lists of pathways.
+        Each sublist contains an 'delegate' pathway and all
+        the ones included in it.
+    """
+    pi[1] = np.vectorize(int)(pi[1])
+    a = np.array([s.split(",") for s in pi[2]])
+    tag = np.array(a[pi[1].idxmax()])
+    ll = np.array([len(np.setdiff1d(x, tag)) for x in a])
+    g = pd.DataFrame(pi[ll<=cov].values)
+    if np.ndim(g)!=1:
+        g.sort_values(1, ascending=False, inplace=True)
+        g.reset_index(drop = True, inplace=True)
+    newpi = pd.DataFrame(pi[ll>cov].values)
+    nrow, ncol = newpi.shape
+    if ncol==1:
+        g = [g]+[newpi]
+    elif nrow==0:
+        return [g]
+    else:
+        g = [g]+PS(newpi)
+    return g
+
+
+# In[13]:
+
+
+def predata(data, outth=10):
+    """
+        This function gives input data the appropriate format
+        for importdata to use it. 
+        Namely, groups duplicates by their median value.
+    """
+    nrow, ncol = data.shape
+    print("    #(input site/probe): {}".format(nrow))
+    
+    ### Remove missing
+    tokp = np.logical_not([(k[1]=="NAN") or (k[1]=="NaN") or (k[1]=="NA")                     or (k[1]=="na") or (k[1]=="-") or (k[0]=="")                     or (k[1]=="") or pd.isnull(k[0]) or pd.isnull(k[1])                     for k in data])
+    data = data[tokp]
+        
+    ### Multiple ids one value
+    data1 = np.array([s for s in data if len(s[0])<11])
+    data2 = np.array([s for s in data if len(s[0])>10])
+    if data2.shape[0] != 0:
+        cop = np.empty((0,2), dtype=object)
+        for protein in data2:
+            for realid in protein[0].split("|"):
+                cop = np.append(cop, [[realid, protein[1]]], axis=0)
+        data2 = np.copy(cop)
+    else:
+        data2 = data2.reshape(0,2)
+    data = np.concatenate((data1,data2))
+    data = pd.DataFrame(data, columns=["id","exp"])
+    data['id']= np.vectorize(lambda t: t[0:6])(data['id'])
+    
+    ### one id multiple values
+    data['exp'] = np.vectorize(float)(data['exp'])
+    med = data.groupby(['id']).median()
+    data = pd.DataFrame({'id':med.index.values, 'M':med.values.flatten()})
+    
+    ### normalization
+    if min(data['M'])>=0:
+        nul = data[data['M']==0].index
+        data.iloc[nul].M = min(data[data['M']!=0]['M'])
+        data['M']=np.log2(data['M'])
+    
+    ### outliers replacement
+    for i in range(len(data)):       
+        if not (-outth <= data.iloc[i]['M'] <= outth):
+            data.iloc[i].M = np.sign(data.iloc[i]['M'])*max(abs(data['M']))   
+            
+    ### standardization
+    data['M'] = data['M'] / np.std(data['M'])
+    
+    return data
+
+
+# __Main functions__
+
+
+def importdata(file1, file2="", outth=100):
+    """ Data import and pre-process.
+    
+        This function removes NA, replaces extreme values, and
+            standardizes the data. It also maps the data with
+            Uniprot identifiers to ensp identifiers.
+         
+        file1: Expression data with Uniprot identifiers.
+        file2: Expression data with Uniprot identifiers, 
+            optional for time-course data.
+        outth: Outlier threshold, default is 10.
+    """
+    print("=================================================")
+    print(" Dataset summary:")
+    print("-------------------------------------------------")
+    
+    if len(file2)==0:
+        x = file1.values[:,0:2]
+        data = predata(x, outth)
+    else:
+        x = file1.values[:,0:2]
+        y = file2.values[:,0:2]
+        data1, data2 = predata(x, outth), predata(y, outth)
+        #time series, divide time 1 and time 2
+        data12 = np.empty((0,2), dtype=object) 
+        m2 = min(data2['M'], key=abs)
+        for i in range(len(data1)):
+            proti = data1.iloc[i]['id']
+            if proti not in data2['id'].values:
+                data12 = np.concatenate((data12, [[proti, data1.iloc[i]['M']-m2]]))
+                
+        data21 = np.empty((0,2), dtype=object)
+        m1 = min(data1['M'], key=abs)
+        for i in range(len(data2)):
+            proti = data2.iloc[i]['id']
+            if proti not in data1['id'].values:
+                data21 = np.concatenate((data21, [[proti, data2.iloc[i]['M']-m1]]))
+        
+        data12 = pd.DataFrame(data12, columns=['id','M'])
+        data21 = pd.DataFrame(data21, columns=['id','M'])
+        
+        datai, d1i, d2i = np.intersect1d(data1['id'],data2['id'], return_indices=True)
+        data = np.empty((0,2), dtype=object)
+        for i, inter in enumerate(datai):
+            data = np.concatenate((data, [[inter, data1.iloc[d1i[i]]['M'] - data2.iloc[d2i[i]]['M']]]), axis=0)
+        data = pd.DataFrame(data, columns=['id','M'])
+        
+        data = pd.concat((data,data12,data21), ignore_index=True)
+    
+    data.columns = ['id', 'exp']
+    data['exp'] = np.vectorize(float)(data['exp'])
+    print("    #(input proteins):   {}".format(data.shape[0]))
+    print("=================================================")
+    return data
+
+
+
+def computeT2(data, vex, pid, ppi, stu, purb=1.5, intg=True, alpha=0.05, ncore=7, sizelim = 100):
+    """ Computes T**2 and its p-value for each pathway.
+        This function computes the T**2 score and its significance level.
+        
+        data: Proccessed data using importdata function.
+        purb: Perturbance threshold, default is 1.5 (after normalization).
+        pathDB: Pathway database: 'KEGG', 'BioCyc', 'GO', 'GOc', 'GOf' or 'GOp'.
+        ppiDB: Protein-protein interaction database: 'STRING' or 'HitPredict'.
+        intg: Apply pathway integration or not. Default is True.
+        alpha: Significance level. Default is 0.05.
+        ncore: Number of parallel computing cores. Default is 7.
+        sizelim: Maximum size of the pathways to return.
+    """
+    
+    data.loc[data['exp'].between(-purb,purb,inclusive=False), 'exp']=0
+    
+    ### data mapping
+    n = np.where(np.isin(vex['prot_id'], data['id']))[0]
+    print("    #(mapped entries):    {}".format(len(np.intersect1d(vex['prot_id'], data['id']))))
+    vexData = vex.iloc[n].copy()
+    vexData['exp'] = np.array([[dv[1] for dv in data.values if dv[0]==vv[1]] for vv in vexData.values])
+    mp = np.unique(vexData['pathway_id'])
+    print("    #(mapped pathways):   {}".format(len(mp))) 
+    
+    ### pathway integration
+    def desc(cp):
+        pathway = vexData[vexData['pathway_id']==cp]
+        pathwaygenes = ",".join(np.vectorize(str)(pathway['prot_id']))
+        return (pathway.iat[0,0], pathway.shape[0], pathwaygenes)
+    
+    pi = pd.DataFrame([desc(cp) for cp in mp]).sort_values(by=1,ascending=False).reset_index(drop = True)
+    ps = PS(pi)
+    print("    #(summary pathways):  {}".format(len(ps)))
+    inpt = np.array([p[0][0] for p in ps]) if intg else np.concatenate([list(p[0]) for p in ps])
+    
+    ### compute T2
+    def desc2(cp):
+        pathway = vexData[vexData['pathway_id']==cp]
+        size = len(pathway)
+        if size==0:
+            return np.array([cp, '', size, 0, 0, 1, 0, 1], dtype=object)
+        if size<=sizelim:
+            return TS(pathway, ppi, stu, purb)
+        else:
+            return np.array([pathway.iat[0,0], ','.join(pathway['prot_id']), size, 0,0,1,0,1], dtype=object) 
+    r = pd.DataFrame([desc2(cp) for cp in inpt])
+    
+    ##### Result output -------------------------------------------
+    def desc3(l):
+        ttl = pid[pid['pathway_id']==l[0]]
+        ttl = ttl.iat[0,1]
+        return np.insert(l[:6],0,ttl)
+    rrr = pd.DataFrame([desc3(l) for l in r.values])
+    rrr.columns = ["Pathway title","Pathway ID","Uniprot IDs","#Mapped","df","T-square","p-value"]
+    rrr = rrr[rrr["p-value"]<=alpha].reset_index(drop=True)
+    print("    #(enriched pathways): {}".format(rrr.shape[0]))
+    print("=================================================")
+    return(rrr)
