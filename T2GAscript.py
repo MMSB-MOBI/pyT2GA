@@ -67,5 +67,5 @@ if __name__ == '__main__':
     analysis(ptF, ptG, ptS, ptSTU, purb, intg, alpha, ncore, sizelim)
 
 # Example:
-# python T2GA.py './Data/incomplete-wt1.tsv' './Databases/GO_pws.json' './Databases/STRING_v110.tsv' './Databases/STRING_to_Uniprot.tsv' --sizelim=50 --alpha=0.001
+# python T2GAscript.py './Data/incomplete-wt1.tsv' './Databases/GO_pws.json' './Databases/STRING_v110.tsv' './Databases/STRING_to_Uniprot.tsv' --sizelim=50 --alpha=0.001
 
