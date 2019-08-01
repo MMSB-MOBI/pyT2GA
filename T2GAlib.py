@@ -287,9 +287,11 @@ def computeT2(data, vex, pid, ppi, stu, purb=1.5, intg=True, alpha=0.05, ncore=7
         This function computes the T**2 score and its significance level.
         
         data: Proccessed data using importdata function.
+        vex: A dataframe displaying pathways and the proteins they contain.
+        pid: A dataframe displaying pathways and their full-length name.
+        ppi: Protein-protein interaction dataframe: obtained from STRING, for example.
+        stu: STRING to Uniprot translation dataframe.
         purb: Perturbance threshold, default is 1.5 (after normalization).
-        pathDB: Pathway database: 'KEGG', 'BioCyc', 'GO', 'GOc', 'GOf' or 'GOp'.
-        ppiDB: Protein-protein interaction database: 'STRING' or 'HitPredict'.
         intg: Apply pathway integration or not. Default is True.
         alpha: Significance level. Default is 0.05.
         ncore: Number of parallel computing cores. Default is 7.
