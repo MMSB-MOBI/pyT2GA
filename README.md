@@ -9,5 +9,5 @@ A knowledge-based T2-statistic to perform pathway analysis for quantitative prot
 
 
 ### JavaScript extension
-- Displays the proteomic data as volcano plot in an HTML page.
+- Displays the proteomic data as a volcano plot in an HTML page.
 - Can be given a GO term to parse the data, and highlight the corresponding proteins.
