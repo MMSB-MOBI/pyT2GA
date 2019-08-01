@@ -1,5 +1,5 @@
-#!/usr/bin/env python
-# coding: utf-8
+# #!/usr/bin/env python
+# #coding: utf-8
 
 """T^2 Genome Analysis.
 
@@ -11,7 +11,7 @@ Options:
 
 """
 
-from T2GAscript import *
+from T2GAlib import *
 from docopt import docopt
 
 
