@@ -93,32 +93,44 @@ def TV(z, S):
     
 def TS(pathway, ppi, stu, purb, dgv=0.4):
     """ T-square.
-        For the given pathway, this function creates the corresponding
-        interaction matrix.
+        For the given pathway, this function creates the corresponding interaction matrix.
         Returns the associated T^2, p-value, and other information.
     """
+    # - pathway is a pandas dataframe containing the id of a pathway, its included proteins, and their abundance ratios.
+    # - z contains only the abundance ratios of the proteins, to be used later to calculate the T^2 value.
+    # - m contains the indexes of the pathway's proteins that can be translated form Uniprot to STRING.
+    # - S is the interaction matrix to be built from STRING interaction scores.
     pathway = pathway.sort_values(by='prot_id').reset_index(drop = True)
     z = np.vectorize(float)(pathway['exp'])
     m = np.where(np.isin(stu, pathway))[0]
     S = dgv * np.identity(len(z))
     nrow, ncol = S.shape
     if nrow != 1:
+        # Each possible pair of proteins in the pathway will be looked at.
         for i in range(1, nrow):
             for j in range(i):
+                # x1 is the Uniprot accession to one protein i in the pathway.
                 x1 = pathway.iat[i, 1]
+                # x2 is the Uniprot accession to another protein j in the pathway.
                 x2 = pathway.iat[j, 1]
-                s1 = stu.iloc[m]['String_id'].to_numpy()                    [np.where(np.isin(stu.iloc[m]['Uniprot_id'], x1))[0]]
-                s2 = stu.iloc[m]['String_id'].to_numpy()                    [np.where(np.isin(stu.iloc[m]['Uniprot_id'], x2))[0]]   
+                # s1 is the STRING id to protein i, translated using m.
+                s1 = stu.iloc[m]['String_id'].to_numpy()[np.where(np.isin(stu.iloc[m]['Uniprot_id'], x1))[0]]
+                # s2 is the STRING id to protein j.
+                s2 = stu.iloc[m]['String_id'].to_numpy()[np.where(np.isin(stu.iloc[m]['Uniprot_id'], x2))[0]]   
                 if len(s1)*len(s2) !=0:
+                    # If there is one, p will contain the experimental value of interaction between the two proteins.
+                    # If there are more, the mean will be used.
                     p = ppi.iloc[np.where(np.isin(ppi['protein1'],s1))[0]]
                     p = p.iloc[np.where(np.isin(p['protein2'], s2))]['experimental']
-                    if len(p)>0:      
+                    if len(p)>0:   
+                        # Modify S to include that value at the corresponding index.   
                         if z[pathway['prot_id']==x1]*z[pathway['prot_id']==x2] <0:
                             S[i,j] = -np.mean(p)
                             S[j,i] = -np.mean(p)
                         else:
                             S[i,j] = np.mean(p)
                             S[j,i] = np.mean(p)
+    # Transform S to be positive-definite, and therefore useable for the T^2 method.
     S = nearestPD(S)
     r = np.linalg.matrix_rank(S, tol=1e-10)
     T2 = TV(z, S)
@@ -135,12 +147,10 @@ def TS(pathway, ppi, stu, purb, dgv=0.4):
                     dtype=object)
 
 
-
 def PS(pi, cov=0):
     """
         This function returns a list of lists of pathways.
-        Each sublist contains an 'delegate' pathway and all
-        the ones included in it.
+        Each sublist contains an 'delegate' pathway and all the ones included in it.
     """
     pi[1] = np.vectorize(int)(pi[1])
     a = np.array([s.split(",") for s in pi[2]])
@@ -166,15 +176,14 @@ def PS(pi, cov=0):
 
 def predata(data, outth=10):
     """
-        This function gives input data the appropriate format
-        for importdata to use it. 
+        This function gives input data the appropriate format for importdata to use it. 
         Namely, groups duplicates by their median value.
     """
     nrow, ncol = data.shape
     print("    #(input site/probe): {}".format(nrow))
     
     ### Remove missing
-    tokp = np.logical_not([(k[1]=="NAN") or (k[1]=="NaN") or (k[1]=="NA")                     or (k[1]=="na") or (k[1]=="-") or (k[0]=="")                     or (k[1]=="") or pd.isnull(k[0]) or pd.isnull(k[1])                     for k in data])
+    tokp = np.logical_not([(k[1]=="NAN") or (k[1]=="NaN") or (k[1]=="NA") or (k[1]=="na") or (k[1]=="-") or (k[0]=="") or (k[1]=="") or pd.isnull(k[0]) or pd.isnull(k[1]) for k in data])
     data = data[tokp]
         
     ### Multiple ids one value
@@ -225,8 +234,7 @@ def importdata(file1, file2="", outth=100):
             Uniprot identifiers to ensp identifiers.
          
         file1: Expression data with Uniprot identifiers.
-        file2: Expression data with Uniprot identifiers, 
-            optional for time-course data.
+        file2: Expression data with Uniprot identifiers, optional for time-course data.
         outth: Outlier threshold, default is 10.
     """
     print("=================================================")
@@ -288,28 +296,38 @@ def computeT2(data, vex, pid, ppi, stu, purb=1.5, intg=True, alpha=0.05, ncore=7
         sizelim: Maximum size of the pathways to return.
     """
     
+    # We get rid of values under the perturbance threshold.
     data.loc[data['exp'].between(-purb,purb,inclusive=False), 'exp']=0
     
     ### data mapping
+    # n is the indexes of the proteins from our data that can be found in our dataset of pathways. We print its length.
     n = np.where(np.isin(vex['prot_id'], data['id']))[0]
     print("    #(mapped entries):    {}".format(len(np.intersect1d(vex['prot_id'], data['id']))))
+    # Conversely, vexData is the subset of pathways that contain proteins from our data. We print its length and ignore the rest.
     vexData = vex.iloc[n].copy()
     vexData['exp'] = np.array([[dv[1] for dv in data.values if dv[0]==vv[1]] for vv in vexData.values])
     mp = np.unique(vexData['pathway_id'])
     print("    #(mapped pathways):   {}".format(len(mp))) 
     
     ### pathway integration
+
+    # This function and the following loop are only to reshape our set of pathways to something easier to use.
     def desc(cp):
         pathway = vexData[vexData['pathway_id']==cp]
         pathwaygenes = ",".join(np.vectorize(str)(pathway['prot_id']))
         return (pathway.iat[0,0], pathway.shape[0], pathwaygenes)
-    
     pi = pd.DataFrame([desc(cp) for cp in mp]).sort_values(by=1,ascending=False).reset_index(drop = True)
+
+    # The PS function will apply the 'pathway integration' process.
+    # The inpt variable will contain a reshaped result, depending on whether or not the user wants to aknowledge 'pathway integration'.
     ps = PS(pi)
     print("    #(summary pathways):  {}".format(len(ps)))
     inpt = np.array([p[0][0] for p in ps]) if intg else np.concatenate([list(p[0]) for p in ps])
     
     ### compute T2
+
+    # This function and the following loop will allow to create a T^2 value for each pathway in inpt. See TS.
+    # The result is stored in the pandas dataframe r.
     def desc2(cp):
         pathway = vexData[vexData['pathway_id']==cp]
         size = len(pathway)
@@ -322,12 +340,16 @@ def computeT2(data, vex, pid, ppi, stu, purb=1.5, intg=True, alpha=0.05, ncore=7
     r = pd.DataFrame([desc2(cp) for cp in inpt])
     
     ##### Result output -------------------------------------------
+
+    # This function and the following loop reshape r to provide a more satisfactory display.
+    # The result is stored in the pandas dataframe rrr.
     def desc3(l):
         ttl = pid[pid['pathway_id']==l[0]]
         ttl = ttl.iat[0,1]
         return np.insert(l[:6],0,ttl)
     rrr = pd.DataFrame([desc3(l) for l in r.values])
     rrr.columns = ["Pathway title","Pathway ID","Uniprot IDs","#Mapped","df","T-square","p-value"]
+    # Finally, the pathways with too high a p-value are excluded, and we print how many pathways are left.
     rrr = rrr[rrr["p-value"]<=alpha].reset_index(drop=True)
     print("    #(enriched pathways): {}".format(rrr.shape[0]))
     print("=================================================")
