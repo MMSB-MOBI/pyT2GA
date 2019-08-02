@@ -120,8 +120,11 @@ def TS(pathway, ppi, stu, purb, dgv=0.4):
                 if len(s1)*len(s2) !=0:
                     # If there is one, p will contain the experimental value of interaction between the two proteins.
                     # If there are more, the mean will be used.
+                    # Get all protein 1 partners in STRING
                     p = ppi.iloc[np.where(np.isin(ppi['protein1'],s1))[0]]
+                    # Check for protein among partners
                     p = p.iloc[np.where(np.isin(p['protein2'], s2))]['experimental']
+                    # p holds interaction score(s) from experimental evidences only
                     if len(p)>0:   
                         # Modify S to include that value at the corresponding index.   
                         if z[pathway['prot_id']==x1]*z[pathway['prot_id']==x2] <0:
@@ -130,9 +133,10 @@ def TS(pathway, ppi, stu, purb, dgv=0.4):
                         else:
                             S[i,j] = np.mean(p)
                             S[j,i] = np.mean(p)
-    # Transform S to be positive-definite, and therefore useable for the T^2 method.
+    # Transform STRING scores, S matrix to be positive-definite, and therefore useable for the T^2 method.
     S = nearestPD(S)
     r = np.linalg.matrix_rank(S, tol=1e-10)
+    # T2 score matrix effectively used
     T2 = TV(z, S)
     I = dgv * np.identity(len(z))
     T2I = TV(z, I)
@@ -330,16 +334,16 @@ def computeT2(data, vex, pid, ppi, stu, purb=1.5, intg=True, alpha=0.05, ncore=7
 
     # This function and the following loop will allow to create a T^2 value for each pathway in inpt. See TS.
     # The result is stored in the pandas dataframe r.
-    def desc2(cp):
+    def desc2(cp): # cpis a pathway
         pathway = vexData[vexData['pathway_id']==cp]
         size = len(pathway)
         if size==0:
-            return np.array([cp, '', size, 0, 0, 1, 0, 1], dtype=object)
+            return np.array([cp, '', size, 0, 0, 1, 0, 1], dtype=object) # dummy result
         if size<=sizelim:
-            return TS(pathway, ppi, stu, purb)
+            return TS(pathway, ppi, stu, purb)# returns the vector of T-scores 
         else:
-            return np.array([pathway.iat[0,0], ','.join(pathway['prot_id']), size, 0,0,1,0,1], dtype=object) 
-    r = pd.DataFrame([desc2(cp) for cp in inpt])
+            return np.array([pathway.iat[0,0], ','.join(pathway['prot_id']), size, 0,0,1,0,1], dtype=object) # dummy result
+    r = pd.DataFrame([desc2(cp) for cp in inpt]) # stores vectors of score foreach pathway
     
     ##### Result output -------------------------------------------
 
@@ -348,8 +352,10 @@ def computeT2(data, vex, pid, ppi, stu, purb=1.5, intg=True, alpha=0.05, ncore=7
     def desc3(l):
         ttl = pid[pid['pathway_id']==l[0]]
         ttl = ttl.iat[0,1]
-        return np.insert(l[:6],0,ttl)
+        return np.insert(l[:6],0,ttl) # drop trail 6> column and insert pathway name
+    # reshape pathway rows
     rrr = pd.DataFrame([desc3(l) for l in r.values])
+    # reshape finale DF by adding headers
     rrr.columns = ["Pathway title","Pathway ID","Uniprot IDs","#Mapped","df","T-square","p-value"]
     # Finally, the pathways with too high a p-value are excluded, and we print how many pathways are left.
     rrr = rrr[rrr["p-value"]<=alpha].reset_index(drop=True)
