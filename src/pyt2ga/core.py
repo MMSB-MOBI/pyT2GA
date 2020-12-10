@@ -1,19 +1,7 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# # T^2 Genome Analysis
-
-
 import pandas as pd
 import numpy as np
 import json
-
-
-# __Load data__
-
-# __Utility functions__
-
-
+from scipy.stats import chi2
 from numpy import linalg as la
 
 def nearestPD(A):
@@ -76,9 +64,6 @@ if __name__ == '__main__':
             B = nearestPD(A)
             assert(isPD(B))
     print('unit test passed!')
-
-
-from scipy.stats import chi2
 
 def TV(z, S):
     """
@@ -150,7 +135,6 @@ def TS(pathway, ppi, stu, purb, dgv=0.4):
                     chi2.sf(T2I, r)],
                     dtype=object)
 
-
 def PS(pi, cov=0):
     """
         This function returns a list of lists of pathways.
@@ -173,9 +157,6 @@ def PS(pi, cov=0):
     else:
         g = [g]+PS(newpi)
     return g
-
-
-# In[13]:
 
 
 def predata(data, outth=10):
