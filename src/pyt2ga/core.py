@@ -158,6 +158,10 @@ def PS(pi, cov=0):
         g = [g]+PS(newpi)
     return g
 
+def extract_accession_abundance(df, abnd_label):
+    acc_col = df.columns.get_loc("Accession")
+    abnd_col = df.columns.get_loc(abnd_label)
+    return df.values[:,[acc_col,abnd_col]]
 
 def predata(data, outth=10):
     """
@@ -171,7 +175,7 @@ def predata(data, outth=10):
     tokp = np.logical_not([(k[1]=="NAN") or (k[1]=="NaN") or (k[1]=="NA") or (k[1]=="na") or (k[1]=="-") or (k[0]=="") or (k[1]=="") or pd.isnull(k[0]) or pd.isnull(k[1]) for k in data])
     data = data[tokp]
         
-    ### Multiple ids one value
+    ### Multiple ids one value [GL: Not understood, unitprot -X fragment notation patching?]
     data1 = np.array([s for s in data if len(s[0])<11])
     data2 = np.array([s for s in data if len(s[0])>10])
     if data2.shape[0] != 0:
@@ -187,7 +191,10 @@ def predata(data, outth=10):
     data['id']= np.vectorize(lambda t: t[0:6])(data['id'])
     
     ### one id multiple values
-    data['exp'] = np.vectorize(float)(data['exp'])
+    #data['exp'] = np.vectorize(float)(data['exp'])
+    data['exp'] = np.vectorize(float)(
+        data.applymap(lambda x: str( x.replace(',','.') ))['exp'] 
+    )
     med = data.groupby(['id']).median()
     data = pd.DataFrame({'id':med.index.values, 'M':med.values.flatten()})
     
@@ -210,8 +217,7 @@ def predata(data, outth=10):
 
 # __Main functions__
 
-
-def importdata(file1, file2="", outth=100):
+def importdata(inputDf1, inputDf2=None, outth=100, abnd_label = "Corrected_Abundance_Ratio"):
     """ Data import and pre-process.
     
         This function removes NA, replaces extreme values, and
@@ -221,17 +227,22 @@ def importdata(file1, file2="", outth=100):
         file1: Expression data with Uniprot identifiers.
         file2: Expression data with Uniprot identifiers, optional for time-course data.
         outth: Outlier threshold, default is 10.
+
+        We extract the uniprot ID and the "Corrected_Abundance_Ratio" foreach DF row
     """
     print("=================================================")
     print(" Dataset summary:")
     print("-------------------------------------------------")
     
-    if len(file2)==0:
-        x = file1.values[:,0:2]
+    if inputDf2 is None:
+        #x = file1.values[:,0:2]
+        x = extract_accession_abundance(inputDf1, abnd_label)
         data = predata(x, outth)
     else:
-        x = file1.values[:,0:2]
-        y = file2.values[:,0:2]
+        #x = file1.values[:,0:2]
+        #y = file2.values[:,0:2]
+        x = extract_accession_abundance(inputDf1, abnd_label)
+        y = extract_accession_abundance(inputDf2, abnd_label)
         data1, data2 = predata(x, outth), predata(y, outth)
         #time series, divide time 1 and time 2
         data12 = np.empty((0,2), dtype=object) 
