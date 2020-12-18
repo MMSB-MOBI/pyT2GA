@@ -280,7 +280,7 @@ def importdata(inputDf1, inputDf2=None, outth=100, abnd_label = "Corrected_Abund
 
 
 
-def computeT2(data, vex, pid, ppi, stu, purb=1.5, intg=True, alpha=0.05, ncore=7, sizelim = 100):
+def computeT2(data, vex, pid, ppi, stu, purb=1.5, intg=True, alpha=0.05, ncore=1, sizelim = 100):
     """ Computes T**2 and its p-value for each pathway.
         This function computes the T**2 score and its significance level.
         
@@ -348,7 +348,7 @@ def computeT2(data, vex, pid, ppi, stu, purb=1.5, intg=True, alpha=0.05, ncore=7
         else:
             return np.array([pathway.iat[0,0], ','.join(pathway['prot_id']), size, 0,0,1,0,1], dtype=object) # dummy result
 
-    def parallel_desc2(inpt, vexData, ncore=7):
+    def parallel_desc2(inpt, vexData, ncore):
 
         print(f"Total input len {len(inpt)}")
             ### We Create pathway pool by distributing same number of pathway based on their sizes.
@@ -400,7 +400,7 @@ def computeT2(data, vex, pid, ppi, stu, purb=1.5, intg=True, alpha=0.05, ncore=7
     if ncore > 1
         r = pd.DataFrame([desc2(cp) for cp in inpt]) # stores vectors of score foreach pathway
     else:
-        r = parallel_desc2(inpt, vexData, ncore=ncore)
+        r = parallel_desc2(inpt, vexData, ncore)
 
 
     # This function and the following loop reshape r to provide a more satisfactory display.

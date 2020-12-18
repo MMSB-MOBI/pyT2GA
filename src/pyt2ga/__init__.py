@@ -13,7 +13,7 @@ def analysis(proteomicRessource,
              STRINGRessource, 
              MapperUniprotSTRING, 
              abnd_label = "Corrected_Abundance_Ratio",
-             purb=1.5, intg=True, alpha=0.01, ncore=7, sizelim=100):
+             purb=1.5, intg=True, alpha=0.01, ncore=1, sizelim=100):
 
     defineProteomicRessourcHeader(abnd_label)
 
