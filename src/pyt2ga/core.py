@@ -4,6 +4,8 @@ import json
 from scipy.stats import chi2
 from numpy import linalg as la
 
+import multiprocessing
+
 def nearestPD(A):
     """Find the positive-definite matrix nearest to input.
     
@@ -193,7 +195,7 @@ def predata(data, outth=10):
     ### one id multiple values
     #data['exp'] = np.vectorize(float)(data['exp'])
     data['exp'] = np.vectorize(float)(
-        data.applymap(lambda x: str( x.replace(',','.') ))['exp'] 
+        data.applymap(lambda x: x if type(x) == 'float' else str( x.replace(',','.') ))['exp'] 
     )
     med = data.groupby(['id']).median()
     data = pd.DataFrame({'id':med.index.values, 'M':med.values.flatten()})
@@ -304,8 +306,8 @@ def computeT2(data, vex, pid, ppi, stu, purb=1.5, intg=True, alpha=0.05, ncore=7
     # Conversely, vexData is the subset of pathways that contain proteins from our data. We print its length and ignore the rest.
     vexData = vex.iloc[n].copy()
     vexData['exp'] = np.array([[dv[1] for dv in data.values if dv[0]==vv[1]] for vv in vexData.values])
-    mp = np.unique(vexData['pathway_id'])
-    print("    #(mapped pathways):   {}".format(len(mp))) 
+    pathwayList = np.unique(vexData['pathway_id'])
+    print("    #(mapped pathways):   {}".format(len(pathwayList))) 
     
     ### pathway integration
 
@@ -314,7 +316,7 @@ def computeT2(data, vex, pid, ppi, stu, purb=1.5, intg=True, alpha=0.05, ncore=7
         pathway = vexData[vexData['pathway_id']==cp]
         pathwaygenes = ",".join(np.vectorize(str)(pathway['prot_id']))
         return (pathway.iat[0,0], pathway.shape[0], pathwaygenes)
-    pi = pd.DataFrame([desc(cp) for cp in mp]).sort_values(by=1,ascending=False).reset_index(drop = True)
+    pi = pd.DataFrame([desc(cp) for cp in pathwayList]).sort_values(by=1,ascending=False).reset_index(drop = True)
 
     # The PS function will apply the 'pathway integration' process.
     # The inpt variable will contain a reshaped result, depending on whether or not the user wants to aknowledge 'pathway integration'.
@@ -322,6 +324,16 @@ def computeT2(data, vex, pid, ppi, stu, purb=1.5, intg=True, alpha=0.05, ncore=7
     print("    #(summary pathways):  {}".format(len(ps)))
     inpt = np.array([p[0][0] for p in ps]) if intg else np.concatenate([list(p[0]) for p in ps])
     
+   
+
+
+#    print(inpt[:10])
+#    jobs =[]
+#    for pthwyID in inpt:
+#        jobs.append( (pthwyID, len(vexData[vexData['pathway_id']==pthwyID]) ) )
+#    print( sorted(jobs, key=lambda x:x[1]) )
+    
+
     ### compute T2
 
     # This function and the following loop will allow to create a T^2 value for each pathway in inpt. See TS.
@@ -335,9 +347,61 @@ def computeT2(data, vex, pid, ppi, stu, purb=1.5, intg=True, alpha=0.05, ncore=7
             return TS(pathway, ppi, stu, purb)# returns the vector of T-scores 
         else:
             return np.array([pathway.iat[0,0], ','.join(pathway['prot_id']), size, 0,0,1,0,1], dtype=object) # dummy result
-    r = pd.DataFrame([desc2(cp) for cp in inpt]) # stores vectors of score foreach pathway
+
+    def parallel_desc2(inpt, vexData, ncore=7):
+
+        print(f"Total input len {len(inpt)}")
+            ### We Create pathway pool by distributing same number of pathway based on their sizes.
+        def createPool(inputList):
+            tasks = []
+            for pthwyID in inputList:
+                tasks.append( (pthwyID, len(vexData[vexData['pathway_id']==pthwyID]) ) )
+            jobQueue = [ [] for _ in range(ncore) ]
+            
+            tasks = sorted(tasks, key=lambda x:x[1], reverse=True)
+            
+            i=0
+            while (i + len(jobQueue)) <= len(tasks):
+                for j,q in enumerate(jobQueue):               
+                    q.append(tasks[ i + j ][0]) # We only store patchway name, getting rid of its weight
+                i = i + len(jobQueue)
+
+            for _, jobleft in enumerate(tasks[i:]):
+                jobQueue[_].append(jobleft[0]) # We only store patchway name, getting rid of its weight
+            return jobQueue
+
+        jobQueue = createPool(inpt)
+
+        def worker(pthwList, procnum, resultStore):
+            print(f"Starting:{multiprocessing.current_process().name} len={len(pthwList)}")
+            _r = [desc2(cp) for cp in pthwList]
+            resultStore[procnum] = _r
+
+        for j in jobQueue:
+            print(f"#{len(j)}")
+        manager = multiprocessing.Manager()
+        resultStore = manager.dict()
+        procList = [ multiprocessing.Process( target=worker, args=(j, i, resultStore) ) for i,j in enumerate(jobQueue) ]
+        for proc in procList:
+            proc.start()
+        for proc in procList:
+            proc.join()
+        print(resultStore.keys())
+        r = []
+        for k in sorted(list(resultStore.keys()), key=lambda x:float(x)):
+            print(k)
+            r += resultStore[k]
     
-    ##### Result output -------------------------------------------
+        return pd.DataFrame(r)
+
+
+    
+# original single thread call
+    if ncore > 1
+        r = pd.DataFrame([desc2(cp) for cp in inpt]) # stores vectors of score foreach pathway
+    else:
+        r = parallel_desc2(inpt, vexData, ncore=ncore)
+
 
     # This function and the following loop reshape r to provide a more satisfactory display.
     # The result is stored in the pandas dataframe rrr.
@@ -354,3 +418,6 @@ def computeT2(data, vex, pid, ppi, stu, purb=1.5, intg=True, alpha=0.05, ncore=7
     print("    #(enriched pathways): {}".format(rrr.shape[0]))
     print("=================================================")
     return(rrr)
+
+    
+

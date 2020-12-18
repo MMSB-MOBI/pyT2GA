@@ -9,6 +9,8 @@ def defineProteomicRessourcHeader(columnLabel):
     global PROTEOMIC_RESSOURCE_HEADER
 
     PROTEOMIC_RESSOURCE_HEADER = list( set(PROTEOMIC_RESSOURCE_HEADER) | set([columnLabel]) )
+    #print(PROTEOMIC_RESSOURCE_HEADER)
+
 
 def assertValidproteomicRessource(data):
     try:
@@ -17,7 +19,7 @@ def assertValidproteomicRessource(data):
         raise ValueError("proteomic Ressource is not a panda frame")
     
     missingHead = set(PROTEOMIC_RESSOURCE_HEADER) - set(data.columns)
-    
+
     if len(missingHead) > 0:
         raise ValueError(f"Following columns are missing in proteomic Ressource {missingHead}")
     
