@@ -14,26 +14,27 @@ from setuptools import find_packages
 from setuptools import setup
 
 setup(
-  name = 'pyproteins',
+  name = 'pyT2GA',
   version = '1.5',
   license='BSD',
-  description = 'Toolbox to manipulate protein sequence data',
-  author = 'Guillaume Launay & Cecile Hilpert',
+  description = 'T square test implementation',
+  author = 'Tom Oviste, Guillaume Launay & Cecile Hilpert',
   author_email = 'pitooon@gmail.com',
-  url = 'https://github.com/glaunay/pyproteins', # use the URL to the github repo
-  packages=find_packages('src'),
+  url = 'https://github.com/MMSB-MOBI/pyT2GA', # use the URL to the github repo
+  #packages=find_packages('src'),
   package_dir={'': 'src'},
+  packages=['pyT2GA'],
   include_package_data=True,
   zip_safe=False,
   py_modules=[splitext(basename(path))[0] for path in glob('src/*.py')],
-  download_url = 'https://github.com/glaunay/pyproteins/tarball/1.4', # I'll explain this in a second
+  download_url = 'https://github.com/MMSB-MOBI/pyT2GA/tarball/1.4', # I'll explain this in a second
   keywords = ['protein', 'sequence'], # arbitrary keywords
   classifiers = [],
   install_requires=[
-          'bs4', 'biopython', 'numpy','lxml'
+          'docopt', 'pandas', 'scipy'
       ],
    package_data = {
-   'pyproteins': ['conf/confModule1.json','bin/module1.py', 'external/*']
+   #'pyproteins': ['conf/confModule1.json','bin/module1.py', 'external/*']
    },
   #data_files=[
   #          ('external', ['external/pathos.tar.bz']),

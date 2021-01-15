@@ -1,6 +1,5 @@
 
-PROTEOMIC_RESSOURCE_HEADER = ['Accession']#, 'Corrected_Abundance_Ratio',
-       #'LOG2(Corrected_Abundance_Ratio)', 'LOG10(Adj.P-val)']
+PROTEOMIC_RESSOURCE_HEADER = ['Accession']#, 'Corrected_Abundance_Ratio','LOG2(Corrected_Abundance_Ratio)', 'LOG10(Adj.P-val)']
 UNIPROT_STRING_MAPPER_RESSOURCE_HEADER = [ 'String_id', 'Uniprot_id' ]
 STRING_RESSOURCE_HEADER = ['protein1', 'protein2', 'experimental']
 

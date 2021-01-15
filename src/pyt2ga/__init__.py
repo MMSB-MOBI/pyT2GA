@@ -14,6 +14,9 @@ def analysis(proteomicRessource,
              MapperUniprotSTRING, 
              abnd_label = "Corrected_Abundance_Ratio",
              purb=1.5, intg=True, alpha=0.01, ncore=1, sizelim=100):
+    """analysis
+        Run a T2 analysis 
+    """
 
     defineProteomicRessourcHeader(abnd_label)
 
@@ -77,7 +80,7 @@ def analysis(proteomicRessource,
     return toDict(result, GO)
 
 def flatten(l):
-    return [item for sublist in l for item in sublist]
+    return [item for sublist in l for item in sublist]  
 
 def toDict(df, pws):
     theDict = {}

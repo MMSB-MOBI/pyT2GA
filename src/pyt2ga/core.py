@@ -397,7 +397,7 @@ def computeT2(data, vex, pid, ppi, stu, purb=1.5, intg=True, alpha=0.05, ncore=1
 
     
 # original single thread call
-    if ncore > 1
+    if ncore > 1:
         r = pd.DataFrame([desc2(cp) for cp in inpt]) # stores vectors of score foreach pathway
     else:
         r = parallel_desc2(inpt, vexData, ncore)

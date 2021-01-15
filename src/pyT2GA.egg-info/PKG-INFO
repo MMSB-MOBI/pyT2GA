@@ -1,0 +1,12 @@
+Metadata-Version: 1.1
+Name: pyT2GA
+Version: 1.5
+Summary: T square test implementation
+Home-page: https://github.com/MMSB-MOBI/pyT2GA
+Author: Tom Oviste, Guillaume Launay & Cecile Hilpert
+Author-email: pitooon@gmail.com
+License: BSD
+Download-URL: https://github.com/MMSB-MOBI/pyT2GA/tarball/1.4
+Description: UNKNOWN
+Keywords: protein,sequence
+Platform: UNKNOWN
