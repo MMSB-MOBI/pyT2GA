@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "pyt2ga"
+version = "0.1.0"
+description = "A knowledge-based T2-statistic to perform pathway analysis for quantitative proteomic data."
+authors = ["glaunay <pitooon@gmail.com>"]
+license = "GPL"
+
+[tool.poetry.dependencies]
+python = ">=3.8,<3.11"
+docopt = "^0.6.2"
+pandas = "^1.4.1"
+scipy = "^1.8.0"
+Flask = "^2.0.3"
+
+pystringbio = {path = "./pystringbio", develop=true}
+pyproteinsext = {path = "./pyproteinsext", develop=true}
+repl_core = {path = "../../../../projects/repl_core",  develop=true}
+pyrediscore = {path = "./pyrediscore", develop=true}
+unigo = {path = "./unigo", develop=true}
+
+[tool.poetry.dev-dependencies]
+pandas = "^1.4.2"
+jupyter = "^1.0.0"
+ipykernel = "^6.13.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
