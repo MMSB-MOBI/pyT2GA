@@ -12,11 +12,6 @@ pandas = "^1.4.1"
 scipy = "^1.8.0"
 Flask = "^2.0.3"
 
-pystringbio = {path = "./pystringbio", develop=true}
-pyproteinsext = {path = "./pyproteinsext", develop=true}
-repl_core = {path = "../../../../projects/repl_core",  develop=true}
-pyrediscore = {path = "./pyrediscore", develop=true}
-unigo = {path = "./unigo", develop=true}
 
 [tool.poetry.dev-dependencies]
 pandas = "^1.4.2"
